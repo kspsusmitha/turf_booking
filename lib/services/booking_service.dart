@@ -14,21 +14,22 @@ class BookingService {
     required String venueId,
   }) async {
     try {
-      // Get current user data
-      final userData = await UserPreferences.getUser();
-      if (userData == null) {
+      final userId = await UserPreferences.getUserId();
+      if (userId == null) {
         return {
           'success': false,
           'message': 'User not found'
         };
       }
 
-      // Reference to user's bookings
-      final userBookingsRef = _database.child('users/${userData['id']}/bookings');
-      
-      // Create new booking under user's node
-      final newBookingRef = userBookingsRef.push();
-      await newBookingRef.set({
+      // Create booking under user's bookings node
+      final bookingRef = _database
+          .child('users')
+          .child(userId)
+          .child('bookings')
+          .push();
+
+      final bookingData = {
         'timeSlot': timeSlot,
         'courtType': courtType,
         'bookingDate': bookingDate.toIso8601String(),
@@ -38,18 +39,19 @@ class BookingService {
         'createdAt': ServerValue.timestamp,
         'venueName': venueName,
         'venueId': venueId,
-      });
+      };
+
+      await bookingRef.set(bookingData);
 
       return {
         'success': true,
         'message': 'Booking confirmed successfully',
-        'bookingId': newBookingRef.key
+        'bookingId': bookingRef.key
       };
     } catch (e) {
-      print('Error creating booking: $e');
       return {
         'success': false,
-        'message': 'Failed to create booking'
+        'message': 'Failed to create booking: $e'
       };
     }
   }
@@ -86,41 +88,43 @@ class BookingService {
 
   Future<List<Map<String, dynamic>>> getUserBookings() async {
     try {
-      final userData = await UserPreferences.getUser();
-      if (userData == null) {
-        return [];
-      }
+      final userId = await UserPreferences.getUserId();
+      if (userId == null) return [];
 
-      final userBookingsRef = _database.child('users/${userData['id']}/bookings');
-      final bookingsSnapshot = await userBookingsRef.get();
+      final snapshot = await _database
+          .child('users')
+          .child(userId)
+          .child('bookings')
+          .get();
 
-      if (!bookingsSnapshot.exists) {
-        return [];
-      }
+      if (!snapshot.exists) return [];
 
-      List<Map<String, dynamic>> bookings = [];
-      final bookingsMap = bookingsSnapshot.value as Map<dynamic, dynamic>;
+      final bookingsMap = Map<String, dynamic>.from(snapshot.value as Map);
       
-      bookingsMap.forEach((key, value) {
-        bookings.add({
-          'id': key,
-          'timeSlot': value['timeSlot'],
-          'courtType': value['courtType'],
-          'bookingDate': DateTime.parse(value['bookingDate']),
-          'amount': value['amount'].toDouble(),
-          'status': value['status'],
-          'createdAt': value['createdAt'],
-          'venueName': value['venueName'],
-          'venueId': value['venueId'],
-        });
-      });
-
-      // Sort bookings by date
-      bookings.sort((a, b) => b['bookingDate'].compareTo(a['bookingDate']));
-      return bookings;
+      return bookingsMap.entries.map((entry) {
+        final booking = Map<String, dynamic>.from(entry.value as Map);
+        return {
+          'id': entry.key,
+          'timeSlot': booking['timeSlot'],
+          'courtType': booking['courtType'],
+          'bookingDate': DateTime.parse(booking['bookingDate']),
+          'amount': booking['amount'],
+          'status': booking['status'],
+          'createdAt': booking['createdAt'],
+          'venueName': booking['venueName'],
+          'venueId': booking['venueId'],
+        };
+      }).toList()
+        ..sort((a, b) => (b['bookingDate'] as DateTime)
+            .compareTo(a['bookingDate'] as DateTime));
     } catch (e) {
-      print('Error fetching user bookings: $e');
       return [];
     }
+  }
+
+  Future<Map<String, int>> getUserBookingStats(String userId) async {
+    // TODO: Implement API call to fetch booking statistics
+    // This is where you'll make the actual API call to your backend
+    throw UnimplementedError();
   }
 } 

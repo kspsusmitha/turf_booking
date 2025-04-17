@@ -1,4 +1,6 @@
 import 'package:firebase_database/firebase_database.dart';
+import 'package:pitch_planner/models/user.dart';
+import 'package:pitch_planner/services/user_preferences.dart';
 
 
 class UserService {
@@ -9,12 +11,10 @@ class UserService {
   }
 
   UserService._internal() {
-    _database = FirebaseDatabase.instance;
-    _usersRef = _database.ref().child('users');
+    _database = FirebaseDatabase.instance.ref();
   }
 
-  late final FirebaseDatabase _database;
-  late final DatabaseReference _usersRef;
+  late final DatabaseReference _database;
 
   Future<Map<String, dynamic>> registerUser({
     required String name,
@@ -24,9 +24,11 @@ class UserService {
   }) async {
     try {
       final normalizedEmail = email.toLowerCase();
-
-      // Create new user
-      final newUserRef = _usersRef.push();
+      
+      // Create new user reference
+      final newUserRef = _database.child('users').push();
+      final userId = newUserRef.key!;
+      
       final userData = {
         'name': name,
         'email': normalizedEmail,
@@ -34,24 +36,22 @@ class UserService {
         'phone': phone,
         'createdAt': ServerValue.timestamp,
       };
-      
+
       await newUserRef.set(userData);
+      
+      // Save user ID to preferences
+      await UserPreferences.setUserId(userId);
+      await UserPreferences.saveUser({...userData, 'id': userId});
 
       return {
         'success': true,
         'message': 'Registration successful',
-        'user': {
-          'id': newUserRef.key,
-          'name': name,
-          'email': normalizedEmail,
-          'phone': phone,
-        }
+        'userId': userId
       };
     } catch (e) {
-      print('Error registering user: $e');
       return {
         'success': false,
-        'message': 'Registration failed. Please try again.'
+        'message': 'Registration failed: $e'
       };
     }
   }
@@ -63,61 +63,97 @@ class UserService {
     try {
       final normalizedEmail = email.toLowerCase();
       
-      // Get all users and find matching email
-      final usersSnapshot = await _usersRef.get();
-      
-      if (!usersSnapshot.exists) {
+      final snapshot = await _database
+          .child('users')
+          .orderByChild('email')
+          .equalTo(normalizedEmail)
+          .get();
+
+      if (!snapshot.exists || snapshot.value == null) {
         return {
           'success': false,
           'message': 'User not found'
         };
       }
 
-      // Convert snapshot to Map
-      final usersMap = usersSnapshot.value as Map<dynamic, dynamic>;
-      
-      // Find user with matching email
-      String? userId;
-      Map<dynamic, dynamic>? matchedUser;
-      
-      usersMap.forEach((key, value) {
-        if (value['email'] == normalizedEmail) {
-          userId = key;
-          matchedUser = value;
-        }
-      });
+      // Properly cast the Firebase response
+      final Map<dynamic, dynamic> usersMap = snapshot.value as Map<dynamic, dynamic>;
+      final String userId = usersMap.keys.first.toString();
+      final Map<dynamic, dynamic> userData = usersMap[userId] as Map<dynamic, dynamic>;
 
-      if (matchedUser == null) {
+      if (userData['password'] != password) {
         return {
           'success': false,
-          'message': 'User not found'
+          'message': 'Invalid password'
         };
       }
 
-      // Check password
-      if (matchedUser!['password'] == password) {
-        return {
-          'success': true,
-          'message': 'Login successful',
-          'user': {
-            'id': userId,
-            'name': matchedUser!['name'],
-            'email': matchedUser!['email'],
-            'phone': matchedUser!['phone'],
-          }
-        };
-      }
+      // Convert to the correct type for SharedPreferences
+      final Map<String, dynamic> userDataMap = {
+        'id': userId,
+        'name': userData['name']?.toString() ?? '',
+        'email': userData['email']?.toString() ?? '',
+        'phone': userData['phone']?.toString() ?? '',
+        'createdAt': userData['createdAt'] ?? 0,
+      };
+
+      // Save user data to preferences
+      await UserPreferences.setUserId(userId);
+      await UserPreferences.saveUser(userDataMap);
 
       return {
-        'success': false,
-        'message': 'Invalid password'
+        'success': true,
+        'message': 'Login successful',
+        'userId': userId,
+        'user': userDataMap
       };
     } catch (e) {
-      print('Error logging in user: $e');
+      print("Login error: $e");
       return {
         'success': false,
-        'message': 'Login failed. Please try again.'
+        'message': 'Login failed: $e'
       };
+    }
+  }
+
+  Future<User> getUserById(String userId) async {
+    try {
+      final snapshot = await _database
+          .child('users')
+          .child(userId)
+          .get();
+
+      if (!snapshot.exists) {
+        throw Exception('User not found');
+      }
+
+      final userData = Map<String, dynamic>.from(snapshot.value as Map);
+      
+      return User(
+        id: userId,
+        name: userData['name'] ?? '',
+        email: userData['email'] ?? '',
+        phone: userData['phone'] ?? '',
+        password: userData['password'] ?? '',
+        createdAt: userData['createdAt'] ?? 0,
+      );
+    } catch (e) {
+      throw Exception('Failed to get user: $e');
+    }
+  }
+
+  Future<void> updateUser(User user) async {
+    try {
+      await _database
+          .child('users')
+          .child(user.id)
+          .update({
+            'name': user.name,
+            'email': user.email,
+            'phone': user.phone,
+          });
+    } catch (e) {
+      throw Exception('Failed to update user: $e');
     }
   }
 } 

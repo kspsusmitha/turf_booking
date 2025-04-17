@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class UserPreferences {
   static const String _keyUser = 'user';
   static const String _keyIsLoggedIn = 'isLoggedIn';
+  static const String _userIdKey = 'userId';
 
   // Save user data
   static Future<void> saveUser(Map<String, dynamic> userData) async {
@@ -33,5 +34,16 @@ class UserPreferences {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_keyUser);
     await prefs.setBool(_keyIsLoggedIn, false);
+    await prefs.remove(_userIdKey);
+  }
+
+  static Future<void> setUserId(String userId) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_userIdKey, userId);
+  }
+
+  static Future<String?> getUserId() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_userIdKey);
   }
 } 

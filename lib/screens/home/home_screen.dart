@@ -21,15 +21,30 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   final ScrollController _scrollController = ScrollController();
   
   // Sample data - in real app, this would come from a backend
-  final List<TimeSlot> timeSlots = [
-    FiveASideSlot(time: '06:00 AM - 07:00 AM', price: 800),
-    FiveASideSlot(time: '07:00 AM - 08:00 AM', price: 800),
-    SevenASideSlot(time: '08:00 AM - 09:00 AM', price: 1000, isAvailable: false),
-    SevenASideSlot(time: '09:00 AM - 10:00 AM', price: 1000),
-    FiveASideSlot(time: '04:00 PM - 05:00 PM', price: 1200),
-    SevenASideSlot(time: '05:00 PM - 06:00 PM', price: 1200),
-    FiveASideSlot(time: '06:00 PM - 07:00 PM', price: 1500),
-    SevenASideSlot(time: '07:00 PM - 08:00 PM', price: 1500),
+  final List<Map<String, dynamic>> timeSlots = [
+    {
+      'turf': 'Green Valley Sports Complex',
+      'slots': [
+        FiveASideSlot(time: '06:00 AM - 07:00 AM', price: 800),
+        FiveASideSlot(time: '07:00 AM - 08:00 AM', price: 800),
+        SevenASideSlot(time: '04:00 PM - 05:00 PM', price: 1200),
+      ]
+    },
+    {
+      'turf': 'Elite Football Arena',
+      'slots': [
+        SevenASideSlot(time: '08:00 AM - 09:00 AM', price: 1000, isAvailable: false),
+        SevenASideSlot(time: '09:00 AM - 10:00 AM', price: 1000),
+        FiveASideSlot(time: '05:00 PM - 06:00 PM', price: 1200),
+      ]
+    },
+    {
+      'turf': 'Premier Pitch Hub',
+      'slots': [
+        FiveASideSlot(time: '06:00 PM - 07:00 PM', price: 1500),
+        SevenASideSlot(time: '07:00 PM - 08:00 PM', price: 1500),
+      ]
+    },
   ];
 
   final List<Map<String, dynamic>> turfImages = [
@@ -191,97 +206,100 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
               itemCount: turfImages.length,
               itemBuilder: (context, index) {
                 final turf = turfImages[index];
-                return Container(
-                  width: 280,
-                  margin: const EdgeInsets.only(right: 16),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 8,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Stack(
-                    children: [
-                      // Turf Image
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(16),
-                        child: Image.asset(
-                          turf['image'],
-                          width: double.infinity,
-                          height: 200,
-                          fit: BoxFit.cover,
+                return GestureDetector(
+                  onTap: () => _showTurfBookingOptions(turf),
+                  child: Container(
+                    width: 280,
+                    margin: const EdgeInsets.only(right: 16),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
                         ),
-                      ),
-                      // Gradient Overlay
-                      Container(
-                        decoration: BoxDecoration(
+                      ],
+                    ),
+                    child: Stack(
+                      children: [
+                        // Turf Image
+                        ClipRRect(
                           borderRadius: BorderRadius.circular(16),
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              Colors.transparent,
-                              Colors.black.withOpacity(0.7),
+                          child: Image.asset(
+                            turf['image'],
+                            width: double.infinity,
+                            height: 200,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                        // Gradient Overlay
+                        Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(16),
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                Colors.transparent,
+                                Colors.black.withOpacity(0.7),
+                              ],
+                            ),
+                          ),
+                        ),
+                        // Turf Info
+                        Positioned(
+                          bottom: 16,
+                          left: 16,
+                          right: 16,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                turf['name'],
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.star,
+                                    color: Colors.amber,
+                                    size: 16,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '${turf['rating']}',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Icon(
+                                    Icons.location_on,
+                                    color: Colors.green.shade300,
+                                    size: 16,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    turf['distance'],
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ],
                           ),
                         ),
-                      ),
-                      // Turf Info
-                      Positioned(
-                        bottom: 16,
-                        left: 16,
-                        right: 16,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              turf['name'],
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.star,
-                                  color: Colors.amber,
-                                  size: 16,
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  '${turf['rating']}',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 14,
-                                  ),
-                                ),
-                                const SizedBox(width: 16),
-                                Icon(
-                                  Icons.location_on,
-                                  color: Colors.green.shade300,
-                                  size: 16,
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  turf['distance'],
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 14,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 );
               },
@@ -462,11 +480,8 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             ),
             itemCount: timeSlots.length,
             itemBuilder: (context, index) {
-              final slot = timeSlots[index];
-              // Get the corresponding turf for this slot
-              final turfIndex = index % turfImages.length;
-              final turf = turfImages[turfIndex];
-              return _buildTimeSlotCard(slot, turf);
+              final turf = timeSlots[index];
+              return _buildTimeSlotCard(turf['slots'][0], turf['turf']);
             },
           ),
         ],
@@ -474,9 +489,9 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     );
   }
 
-  Widget _buildTimeSlotCard(TimeSlot slot, Map<String, dynamic> turf) {
+  Widget _buildTimeSlotCard(TimeSlot slot, String turfName) {
     return GestureDetector(
-      onTap: slot.isAvailable ? () => _showBookingDialog(slot, turf) : null,
+      onTap: slot.isAvailable ? () => _showBookingDialog(slot, turfName) : null,
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
@@ -495,7 +510,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             ClipRRect(
               borderRadius: BorderRadius.circular(20),
               child: Image.asset(
-                turf['image'],
+                'assets/images/turf1.jpg',
                 height: double.infinity,
                 width: double.infinity,
                 fit: BoxFit.cover,
@@ -642,7 +657,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     );
   }
 
-  void _showBookingDialog(TimeSlot slot, Map<String, dynamic> turf) {
+  void _showBookingDialog(TimeSlot slot, String turfName) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -657,7 +672,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             _buildDialogDetailRow(
               Icons.sports_soccer,
               'Venue',
-              turf['name'],
+              turfName,
             ),
             _buildDialogDetailRow(
               Icons.calendar_today,
@@ -712,7 +727,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
-              _proceedToPayment(slot, turf);
+              _proceedToPayment(slot, turfName);
             },
             style: ElevatedButton.styleFrom(
               shape: RoundedRectangleBorder(
@@ -756,7 +771,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     );
   }
 
-  void _proceedToPayment(TimeSlot slot, Map<String, dynamic> turf) {
+  void _proceedToPayment(TimeSlot slot, String turfName) {
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -765,8 +780,8 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           timeSlot: slot.time,
           courtType: slot.courtType,
           bookingDate: selectedDate,
-          venueName: turf['name'],
-          venueId: 'venue_${turf['name'].toLowerCase().replaceAll(' ', '_')}',
+          venueName: turfName,
+          venueId: 'venue_${turfName.toLowerCase().replaceAll(' ', '_')}',
         ),
       ),
     );
@@ -818,6 +833,62 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         );
       }
     }
+  }
+
+  void _showTurfBookingOptions(Map<String, dynamic> turf) {
+    // Find slots for this turf
+    final turfSlots = timeSlots.firstWhere(
+      (t) => t['turf'] == turf['name'],
+      orElse: () => {'turf': turf['name'], 'slots': []},
+    );
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.7,
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              turf['name'],
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Available Slots for ${DateFormat('EEEE, MMMM d').format(selectedDate)}',
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Expanded(
+              child: GridView.builder(
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                  childAspectRatio: 1.1,
+                ),
+                itemCount: (turfSlots['slots'] as List).length,
+                itemBuilder: (context, index) {
+                  final slot = turfSlots['slots'][index];
+                  return _buildTimeSlotCard(slot, turf['name']);
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override

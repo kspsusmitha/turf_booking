@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:pitch_planner/models/user.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:pitch_planner/services/user_service.dart';
+import 'package:pitch_planner/services/user_preferences.dart';
+import 'package:pitch_planner/screens/auth/login_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -14,43 +16,120 @@ class _ProfileScreenState extends State<ProfileScreen> {
   late TextEditingController _nameController;
   late TextEditingController _emailController;
   late TextEditingController _phoneController;
+  bool _isLoading = true;
   bool _isEditing = false;
-
-  // TODO: Replace with actual user data from backend
-  User _user = User(
-    id: '1',
-    name: 'John Doe',
-    email: 'john.doe@example.com',
-    phone: '+91 9876543210',
-  );
+  User? _user;
+  final _userService = UserService();
 
   @override
   void initState() {
     super.initState();
-    _nameController = TextEditingController(text: _user.name);
-    _emailController = TextEditingController(text: _user.email);
-    _phoneController = TextEditingController(text: _user.phone);
+    _nameController = TextEditingController();
+    _emailController = TextEditingController();
+    _phoneController = TextEditingController();
+    _loadUserData();
+  }
+
+  Future<void> _loadUserData() async {
+    try {
+      final userId = await UserPreferences.getUserId();
+      if (userId == null) {
+        _navigateToLogin();
+        return;
+      }
+
+      final userData = await _userService.getUserById(userId);
+      setState(() {
+        _user = userData;
+        _nameController.text = userData.name;
+        _emailController.text = userData.email;
+        _phoneController.text = userData.phone;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() => _isLoading = false);
+      _showError('Failed to load profile data');
+    }
+  }
+
+  Future<void> _updateProfile() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _isLoading = true);
+    try {
+      final updatedUser = User(
+        id: _user!.id,
+        name: _nameController.text,
+        email: _emailController.text,
+        phone: _phoneController.text,
+        password: _user!.password,
+        createdAt: _user!.createdAt,
+      );
+
+      await _userService.updateUser(updatedUser);
+      
+      setState(() {
+        _user = updatedUser;
+        _isEditing = false;
+      });
+      _showSuccess('Profile updated successfully');
+    } catch (e) {
+      _showError('Failed to update profile');
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _logout() async {
+    try {
+      await UserPreferences.clearUser();
+      if (mounted) _navigateToLogin();
+    } catch (e) {
+      _showError('Failed to logout');
+    }
+  }
+
+  void _navigateToLogin() {
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (context) => const LoginScreen()),
+      (route) => false,
+    );
+  }
+
+  void _showError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: Colors.red),
+    );
+  }
+
+  void _showSuccess(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: Colors.green),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Profile'),
         actions: [
           IconButton(
             icon: Icon(_isEditing ? Icons.save : Icons.edit),
-            onPressed: () {
-              if (_isEditing) {
-                if (_formKey.currentState!.validate()) {
-                  _saveProfile();
-                }
-              } else {
-                setState(() {
-                  _isEditing = true;
-                });
-              }
-            },
+            onPressed: _isEditing ? _updateProfile : () => setState(() => _isEditing = true),
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: _logout,
           ),
         ],
       ),
@@ -59,15 +138,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
         child: Form(
           key: _formKey,
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              _buildProfileImage(),
+              _buildProfileHeader(),
               const SizedBox(height: 24),
               _buildProfileForm(),
               const SizedBox(height: 24),
-              _buildStatistics(),
-              const SizedBox(height: 24),
-              _buildActionButtons(),
+              _buildAccountInfo(),
             ],
           ),
         ),
@@ -75,31 +151,36 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildProfileImage() {
-    return Stack(
+  Widget _buildProfileHeader() {
+    return Column(
       children: [
         CircleAvatar(
-          radius: 60,
-          backgroundImage: _user.profileImage != null
-              ? NetworkImage(_user.profileImage!)
-              : null,
-          child: _user.profileImage == null
-              ? const Icon(Icons.person, size: 60)
-              : null,
-        ),
-        if (_isEditing)
-          Positioned(
-            bottom: 0,
-            right: 0,
-            child: CircleAvatar(
-              backgroundColor: Theme.of(context).primaryColor,
-              radius: 20,
-              child: IconButton(
-                icon: const Icon(Icons.camera_alt, color: Colors.white),
-                onPressed: _pickImage,
-              ),
+          radius: 50,
+          backgroundColor: Colors.green.shade100,
+          child: Text(
+            _user?.name.substring(0, 1).toUpperCase() ?? 'U',
+            style: TextStyle(
+              fontSize: 32,
+              fontWeight: FontWeight.bold,
+              color: Colors.green.shade700,
             ),
           ),
+        ),
+        const SizedBox(height: 16),
+        Text(
+          _user?.name ?? 'User',
+          style: const TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        Text(
+          _user?.email ?? '',
+          style: TextStyle(
+            fontSize: 16,
+            color: Colors.grey.shade600,
+          ),
+        ),
       ],
     );
   }
@@ -109,12 +190,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
       children: [
         TextFormField(
           controller: _nameController,
+          enabled: _isEditing,
           decoration: const InputDecoration(
             labelText: 'Full Name',
-            border: OutlineInputBorder(),
             prefixIcon: Icon(Icons.person),
+            border: OutlineInputBorder(),
           ),
-          enabled: _isEditing,
           validator: (value) {
             if (value == null || value.isEmpty) {
               return 'Please enter your name';
@@ -125,12 +206,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
         const SizedBox(height: 16),
         TextFormField(
           controller: _emailController,
+          enabled: _isEditing,
           decoration: const InputDecoration(
             labelText: 'Email',
-            border: OutlineInputBorder(),
             prefixIcon: Icon(Icons.email),
+            border: OutlineInputBorder(),
           ),
-          enabled: _isEditing,
           validator: (value) {
             if (value == null || value.isEmpty) {
               return 'Please enter your email';
@@ -144,12 +225,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
         const SizedBox(height: 16),
         TextFormField(
           controller: _phoneController,
+          enabled: _isEditing,
           decoration: const InputDecoration(
             labelText: 'Phone Number',
-            border: OutlineInputBorder(),
             prefixIcon: Icon(Icons.phone),
+            border: OutlineInputBorder(),
           ),
-          enabled: _isEditing,
           validator: (value) {
             if (value == null || value.isEmpty) {
               return 'Please enter your phone number';
@@ -161,7 +242,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildStatistics() {
+  Widget _buildAccountInfo() {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -169,167 +250,48 @@ class _ProfileScreenState extends State<ProfileScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Booking Statistics',
+              'Account Information',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
               ),
             ),
             const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildStatItem('Total Bookings', '12'),
-                _buildStatItem('This Month', '3'),
-                _buildStatItem('Cancelled', '1'),
-              ],
-            ),
+            _buildInfoRow('Member Since', _formatDate(_user?.createdAt ?? 0)),
+            const Divider(),
+            _buildInfoRow('Account ID', _user?.id ?? 'N/A'),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildStatItem(String label, String value) {
-    return Column(
-      children: [
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: Colors.green,
-          ),
-        ),
-        Text(
-          label,
-          style: const TextStyle(
-            color: Colors.grey,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildActionButtons() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        ElevatedButton.icon(
-          onPressed: () {
-            // TODO: Navigate to booking history
-          },
-          icon: const Icon(Icons.history),
-          label: const Text('View Booking History'),
-        ),
-        const SizedBox(height: 8),
-        ElevatedButton.icon(
-          onPressed: () {
-            // TODO: Navigate to favorite venues
-          },
-          icon: const Icon(Icons.favorite),
-          label: const Text('Favorite Venues'),
-        ),
-        const SizedBox(height: 8),
-        OutlinedButton.icon(
-          onPressed: () {
-            // TODO: Implement change password
-            _showChangePasswordDialog();
-          },
-          icon: const Icon(Icons.lock),
-          label: const Text('Change Password'),
-        ),
-      ],
-    );
-  }
-
-  Future<void> _pickImage() async {
-    final ImagePicker picker = ImagePicker();
-    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
-
-    if (image != null) {
-      // TODO: Implement image upload to backend
-      setState(() {
-        _user.profileImage = image.path;
-      });
-    }
-  }
-
-  void _saveProfile() {
-    // TODO: Implement save to backend
-    setState(() {
-      _user.name = _nameController.text;
-      _user.email = _emailController.text;
-      _user.phone = _phoneController.text;
-      _isEditing = false;
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Profile updated successfully!'),
-        backgroundColor: Colors.green,
-      ),
-    );
-  }
-
-  void _showChangePasswordDialog() {
-    final currentPasswordController = TextEditingController();
-    final newPasswordController = TextEditingController();
-    final confirmPasswordController = TextEditingController();
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Change Password'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: currentPasswordController,
-              decoration: const InputDecoration(
-                labelText: 'Current Password',
-              ),
-              obscureText: true,
+  Widget _buildInfoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              color: Colors.grey.shade600,
             ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: newPasswordController,
-              decoration: const InputDecoration(
-                labelText: 'New Password',
-              ),
-              obscureText: true,
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: confirmPasswordController,
-              decoration: const InputDecoration(
-                labelText: 'Confirm New Password',
-              ),
-              obscureText: true,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
           ),
-          ElevatedButton(
-            onPressed: () {
-              // TODO: Implement password change
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Password changed successfully!'),
-                  backgroundColor: Colors.green,
-                ),
-              );
-            },
-            child: const Text('Change Password'),
+          Text(
+            value,
+            style: const TextStyle(
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ],
       ),
     );
+  }
+
+  String _formatDate(int timestamp) {
+    final date = DateTime.fromMillisecondsSinceEpoch(timestamp);
+    return '${date.day}/${date.month}/${date.year}';
   }
 
   @override
