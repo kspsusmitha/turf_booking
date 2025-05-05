@@ -156,4 +156,52 @@ class UserService {
       throw Exception('Failed to update user: $e');
     }
   }
+
+  Future<Map<String, dynamic>> addTurfReview({
+    required String turfId,
+    required String userId,
+    required String userName,
+    required int rating,
+    required String comment,
+  }) async {
+    try {
+      final reviewRef = _database.child('turfs').child(turfId).child('reviews').push();
+      final reviewId = reviewRef.key!;
+      final reviewData = {
+        'userId': userId,
+        'userName': userName,
+        'rating': rating,
+        'comment': comment,
+        'createdAt': ServerValue.timestamp,
+      };
+      await reviewRef.set(reviewData);
+      return {
+        'success': true,
+        'message': 'Review added successfully',
+        'reviewId': reviewId,
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Failed to add review: $e',
+      };
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getTurfReviews(String turfId) async {
+    try {
+      final snapshot = await _database.child('turfs').child(turfId).child('reviews').get();
+      if (!snapshot.exists || snapshot.value == null) {
+        return [];
+      }
+      final Map<dynamic, dynamic> reviewsMap = snapshot.value as Map<dynamic, dynamic>;
+      return reviewsMap.entries.map((entry) {
+        final review = Map<String, dynamic>.from(entry.value);
+        review['id'] = entry.key;
+        return review;
+      }).toList();
+    } catch (e) {
+      throw Exception('Failed to fetch reviews: $e');
+    }
+  }
 } 
